@@ -1,5 +1,14 @@
 {
+  "deno.enable": true,
+  "deno.lint": true,
+  "deno.cacheOnSave": true,
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "denoland.vscode-deno",
+  "[html]": {
+    "editor.defaultFormatter": "denoland.vscode-deno"
+  },
   "cSpell.words": [
+    "hono",
     "importmap",
     "qrcode"
   ]

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Share Text</title>
+  </head>
+  <body>
+    <script type="importmap">
+      {
+        "imports": {
+          "solid-js": "https://esm.sh/solid-js@1.9.3",
+          "solid-js/": "https://esm.sh/solid-js@1.9.3/",
+          "qrcode": "https://esm.sh/qrcode@1.5.4"
+        }
+      }
+    </script>
+    <script type="module">
+      import { createEffect, createResource, createSignal, Show } from "solid-js";
+      import { render } from "solid-js/web";
+      import html from "solid-js/html";
+      import qrcode from "qrcode";
+
+      function App() {
+        // ------------------------ key ------------------------ //
+
+        const [key, setKey] = createSignal(location.pathname.replace("/", ""));
+        const url = () => `${location.origin}/${key()}`;
+
+        createEffect(() => {
+          history.replaceState({}, "", url());
+          document.title = key() ? `Share Text - ${key()}` : "Share Text";
+          setValue("");
+        });
+
+        function onInputKey(e) {
+          setKey(e.target.value);
+        }
+
+        function generateKey() {
+          const randomKey = new Array(6).fill(0).map(() =>
+            Math.floor(Math.random() * 16).toString(16)
+          ).join("");
+          setKey(randomKey);
+          getValueApi(randomKey);
+        }
+
+        // ------------------------ value ------------------------ //
+
+        const [value, setValue] = createSignal("");
+        const [setting, setSetting] = createSignal(false);
+        const [getting, setGetting] = createSignal(false);
+
+        if (!key()) {
+          generateKey();
+        } else {
+          getValueApi();
+        }
+
+        function onInputValue(e) {
+          setValue(e.target.value);
+        }
+
+        async function setValueApi() {
+          setSetting(true);
+          const res = await fetch(`/api/text?key=${key()}`, {
+            method: "post",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ data: value() }),
+          }).finally(() => {
+            setSetting(false);
+          });
+          const body = await res.json();
+          if (!body.ok) {
+            alert(`Failed to set the value: ${body.err}`);
+            return;
+          }
+        }
+
+        async function getValueApi() {
+          setGetting(true);
+          const res = await fetch(`/api/text?key=${key()}`).finally(() => {
+            setGetting(false);
+          });
+          const body = await res.json();
+          if (!body.ok) {
+            alert(`Failed to get the value: ${body.err}`);
+            return;
+          }
+          setValue(body.data);
+        }
+
+        async function copyValue() {
+          await navigator.clipboard.writeText(value());
+          alert("Copied 😉");
+        }
+
+        // ------------------------ qrcode ------------------------ //
+
+        const [dataUrl] = createResource(url, (v) => qrcode.toDataURL(v));
+
+        // ------------------------ render ------------------------ //
+
+        return html`
+          <div style="height: 100%; padding: 0 16px; display: grid; grid-template-rows: 1fr max-content; grid-template-columns: 100%;">
+            <!-- main -->
+            <main style="padding-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+              <!-- key -->
+              <div style="display: flex; gap: 8px;">
+                <input
+                  value=${key}
+                  onInput=${onInputKey}
+                  disabled=${() => setting() || getting()}
+                  placeholder="Key"
+                  style="width: 200px;"
+                />
+                <button
+                  onClick=${generateKey}
+                  disabled=${() => setting() || getting()}
+                >
+                  Generate
+                </button>
+              </div>
+
+              <!-- qrcode -->
+              <${Show} when=${key}>
+                <img src=${dataUrl} style="width: 120px;" />
+              </>
+
+              <!-- value -->
+              <textarea
+                value=${value}
+                onInput=${onInputValue}
+                placeholder="Value (will expire in 24 hours)"
+              />
+
+              <!-- buttons -->
+              <div style="display: flex; gap: 8px;">
+                <button
+                  onClick=${getValueApi}
+                  disabled=${() => !Boolean(key()) || getting()}
+                >
+                  ${() => getting() ? "Getting..." : "Get"}  
+                </button>
+                <button
+                  onClick=${setValueApi}
+                  disabled=${() => !Boolean(key()) || setting()}
+                >
+                  ${() => setting() ? "Setting..." : "Set"}  
+                </button>
+                <button
+                  onClick=${copyValue}
+                  disabled=${() => !Boolean(value())}
+                >
+                  Copy
+                </button>
+              </div>
+            </main>
+
+            <!-- footer -->
+            <footer style="padding: 32px 0; text-align: center; font-size: 12px; opacity: 0.7;">
+              <span>
+                <a href="https://github.com/mys1024/share-text">Github</a>  
+              </span>
+              <span> · </span>
+              <span>
+                MIT license
+              </span>
+              <span> · </span>
+              <span>
+                &copy; ${new Date().getFullYear()}&nbsp;
+                <a href="https://mys.1024.cab">mys1024</a>
+              </span>
+            </footer>
+          </div>
+        `;
+      }
+
+      render(App, document.body);
+    </script>
+    <style>
+      * {
+        font-family: Consolas, monospace;
+      }
+
+      html, body {
+        height: 100%;
+        margin: 0;
+      }
+
+      a {
+        color: black;
+        text-decoration: none;
+      }
+
+      a:hover {
+        color: skyblue;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+      }
+
+      textarea {
+        height: 300px;
+        width: 100%;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        body,
+        a,
+        input,
+        input::placeholder,
+        textarea,
+        textarea::placeholder,
+        button {
+          color: white;
+        }
+
+        body {
+          background-color: rgb(64, 64, 64);
+        }
+
+        button:hover {
+          background-color: rgb(32, 32, 32);
+        }
+
+        input, textarea, button, button:disabled {
+          background-color: rgb(48, 48, 48);
+        }
+
+        input::placeholder, textarea::placeholder, button:disabled {
+          opacity: 0.6;
+        }
+      }
+
+      @media screen and (min-width: 800px) {
+        textarea {
+          width: 50%;
+        }
+      }
+    </style>
+  </body>
+</html>
